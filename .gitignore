@@ -1,0 +1,9 @@
+.env
+.venv
+test.py
+test.ipynb
+*.csv
+*.json
+*.log
+tempCodeRunnerFile.py
+__pycache__
