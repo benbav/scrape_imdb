@@ -14,16 +14,13 @@ Dependencies:
 """
 
 import asyncio
-import sys
 from imdb_scraper import main
+import os
+import platform
 
 if __name__ == "__main__":
+    if platform.system() == "Linux":
+        tmp_dir = os.path.expanduser('~/tmp')
+        os.makedirs(tmp_dir, exist_ok=True)  # This will create the directory if it doesn't exist
+        os.environ['TMPDIR'] = tmp_dir
     asyncio.run(main())
-
-
-# TODO:
-
-# upload to github
-# add it pi and cron it evernight - see if it gets blocked
-# see if I can refactor this later to be less code
-# review changes later so we can understand the structure and advantage of this approach

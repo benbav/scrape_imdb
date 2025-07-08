@@ -86,3 +86,5 @@ class RequestConfig:
             'x-main': cookies_dict['x-main'],
             'session-token': cookies_dict['session-token']
         } 
+    
+    # 5 3 * * * /home/benbav/Desktop/scrape_imdb/.venv/bin/python /home/benbav/Desktop/scrape_imdb/main.py >> /home/benbav/Desktop/scrape_imdb/cron.log 2>&1
