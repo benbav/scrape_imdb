@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import pandas as pd
 from typing import Dict, Any, Optional
 from config import IMDBConstants
@@ -78,7 +79,6 @@ class FileManager:
         for dir_name in dirs_to_remove:
             try:
                 if os.path.exists(dir_name):
-                    import shutil
                     shutil.rmtree(dir_name)
                     logger.info(f"Removed directory {dir_name}")
             except Exception as e:
