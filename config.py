@@ -15,11 +15,27 @@ class IMDBConfig:
     @classmethod
     def from_env(cls):
         load_dotenv()
+        
+        login = os.getenv('imdb_login')
+        password = os.getenv('imdb_pass')
+        spreadsheet_id = os.getenv('spreadsheet_id')
+        service_account_path = os.getenv('service_account_path')
+        
+        # Validate required environment variables
+        if not login:
+            raise ValueError("Environment variable 'imdb_login' is not set")
+        if not password:
+            raise ValueError("Environment variable 'imdb_pass' is not set")
+        if not spreadsheet_id:
+            raise ValueError("Environment variable 'spreadsheet_id' is not set")
+        if not service_account_path:
+            raise ValueError("Environment variable 'service_account_path' is not set")
+        
         return cls(
-            login=os.getenv('imdb_login'),
-            password=os.getenv('imdb_pass'),
-            spreadsheet_id=os.getenv('spreadsheet_id'),
-            service_account_path=os.getenv('service_account_path')
+            login=login,
+            password=password,
+            spreadsheet_id=spreadsheet_id,
+            service_account_path=service_account_path
         )
 
 class IMDBConstants:

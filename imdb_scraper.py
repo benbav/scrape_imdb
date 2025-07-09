@@ -60,9 +60,25 @@ class IMDBScraper:
     
     def _setup_environment(self) -> None:
         """Setup the environment for scraping"""
-        # Update playwright
+        # Install playwright browsers using Python module
+        import subprocess
+        import sys
         import os
-        os.system('playwright install chromium')
+
+        try:
+            # Use the current Python executable to run playwright install
+            subprocess.run([
+                sys.executable, '-m', 'playwright', 'install', 'chromium'
+            ], check=True, capture_output=True, text=True)
+            logger.info("Playwright browsers installed successfully")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to install Playwright browsers: {e}")
+            logger.error(f"stdout: {e.stdout}")
+            logger.error(f"stderr: {e.stderr}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error installing Playwright browsers: {e}")
+            raise
         
         # Setup logging
         setup_logger()

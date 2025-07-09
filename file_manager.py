@@ -83,3 +83,24 @@ class FileManager:
                     logger.info(f"Removed directory {dir_name}")
             except Exception as e:
                 logger.warning(f"Could not remove directory {dir_name}: {e}") 
+
+        def clear_tmp():
+            # Instead of os.system with sudo (which can leave orphaned processes)
+            tmp_dir = os.path.expanduser('~/tmp')
+            try:
+                for item in os.listdir(tmp_dir):
+                    if item.startswith('playwright') or 'Temp' in item:
+                        try:
+                            item_path = os.path.join(tmp_dir, item)
+                            if os.path.isdir(item_path):
+                                shutil.rmtree(item_path, ignore_errors=True)
+                            else:
+                                os.remove(item_path)
+                        except Exception as e:
+                            logger.warning(f"Failed to remove {item}: {e}")
+            except Exception as e:
+                print('no tmp dir found')
+                logger.info('no tmp dir found')
+                pass
+
+        clear_tmp()

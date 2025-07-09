@@ -17,6 +17,15 @@ class BrowserManager:
     
     async def create_stealth_browser(self):
         """Create a stealth browser with anti-detection measures"""
+        import os
+        import platform
+        
+        # Set temp directory for Playwright only on Linux
+        if platform.system() == "Linux":
+            temp_dir = os.path.expanduser('~/tmp')
+            os.makedirs(temp_dir, exist_ok=True)
+            os.environ['TMPDIR'] = temp_dir
+        
         self.playwright = await async_playwright().start()
         
         # Use a more recent Chrome version
@@ -71,6 +80,7 @@ class BrowserManager:
             timezone_id='America/New_York',
             geolocation={'latitude': 40.7128, 'longitude': -74.0060},  # NYC coordinates
             permissions=['geolocation'],
+            accept_downloads=True,
             extra_http_headers={
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
                 'Accept-Language': 'en-US,en;q=0.9',
@@ -135,16 +145,32 @@ class BrowserManager:
     
     async def login(self, config: IMDBConfig) -> None:
         """Login to IMDB"""
+        # Validate config values before attempting login
+        if not config.login or not config.password:
+            raise ValueError("Login credentials are missing. Please check your .env file.")
+        
         page = await self.context.new_page()
         
-        await page.goto("https://www.imdb.com/ap/signin?openid.pape.max_auth_age=0&openid.return_to=https%3A%2F%2Fwww.imdb.com%2Fregistration%2Fap-signin-handler%2Fimdb_us&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.assoc_handle=imdb_us&openid.mode=checkid_setup&siteState=eyJvcGVuaWQuYXNzb2NfaGFuZGxlIjoiaW1kYl91cyIsInJlZGlyZWN0VG8iOiJodHRwczovL3d3dy5pbWRiLmNvbS8_cmVmXz1sb2dpbiJ9&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0&tag=imdbtag_reg-20")
-        await asyncio.sleep(1)
-        await page.get_by_role("textbox", name="Email or mobile phone number").fill(config.login)
-        await page.get_by_role("textbox", name="Password").fill(config.password)
-        await asyncio.sleep(1)
-        await page.get_by_role("button", name="Sign in").click() 
-        await asyncio.sleep(1)
-        logger.info("Login successful")
+        try:
+            await page.goto("https://www.imdb.com/ap/signin?openid.pape.max_auth_age=0&openid.return_to=https%3A%2F%2Fwww.imdb.com%2Fregistration%2Fap-signin-handler%2Fimdb_us&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.assoc_handle=imdb_us&openid.mode=checkid_setup&siteState=eyJvcGVuaWQuYXNzb2NfaGFuZGxlIjoiaW1kYl91cyIsInJlZGlyZWN0VG8iOiJodHRwczovL3d3dy5pbWRiLmNvbS8_cmVmXz1sb2dpbiJ9&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0&tag=imdbtag_reg-20")
+            await asyncio.sleep(1)
+            
+            # Fill in login credentials
+            await page.get_by_role("textbox", name="Email or mobile phone number").fill(config.login)
+            await page.get_by_role("textbox", name="Password").fill(config.password)
+            await asyncio.sleep(1)
+            
+            # Click sign in button
+            await page.get_by_role("button", name="Sign in").click() 
+            await asyncio.sleep(1)
+            
+            logger.info("Login successful")
+            
+        except Exception as e:
+            logger.error(f"Login failed: {e}")
+            # Take a screenshot for debugging
+            await page.screenshot(path='login_error.jpg')
+            raise
     
     async def get_cookies(self, config: IMDBConfig) -> Dict[str, str]:
         """Get cookies after login"""
