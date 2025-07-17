@@ -3,7 +3,7 @@ import os
 import shutil
 import pandas as pd
 from typing import Dict, Any, Optional
-from config import IMDBConstants
+from config import IMDBConstants, SCRIPT_DIR
 from logger import get_logger
 
 logger = get_logger(__name__)
@@ -13,6 +13,10 @@ class FileManager:
     def save_json(data: Dict[str, Any], filename: str) -> None:
         """Save data to JSON file"""
         try:
+            # Ensure filename is an absolute path
+            if not os.path.isabs(filename):
+                filename = os.path.join(SCRIPT_DIR, filename)
+            
             with open(filename, 'w') as f:
                 json.dump(data, f, indent=4)
             logger.info(f"Data saved to {filename}")
@@ -24,6 +28,10 @@ class FileManager:
     def load_json(filename: str) -> Dict[str, Any]:
         """Load data from JSON file"""
         try:
+            # Ensure filename is an absolute path
+            if not os.path.isabs(filename):
+                filename = os.path.join(SCRIPT_DIR, filename)
+            
             with open(filename, 'r') as f:
                 return json.load(f)
         except Exception as e:
@@ -34,6 +42,10 @@ class FileManager:
     def save_csv(df: pd.DataFrame, filename: str, index: bool = False) -> None:
         """Save DataFrame to CSV file"""
         try:
+            # Ensure filename is an absolute path
+            if not os.path.isabs(filename):
+                filename = os.path.join(SCRIPT_DIR, filename)
+            
             df.to_csv(filename, index=index)
             logger.info(f"Data saved to {filename}")
         except Exception as e:
@@ -44,6 +56,10 @@ class FileManager:
     def load_csv(filename: str) -> pd.DataFrame:
         """Load DataFrame from CSV file"""
         try:
+            # Ensure filename is an absolute path
+            if not os.path.isabs(filename):
+                filename = os.path.join(SCRIPT_DIR, filename)
+            
             return pd.read_csv(filename)
         except Exception as e:
             logger.error(f"Error loading {filename}: {e}")
@@ -52,6 +68,9 @@ class FileManager:
     @staticmethod
     def file_exists(filename: str) -> bool:
         """Check if file exists"""
+        # Ensure filename is an absolute path
+        if not os.path.isabs(filename):
+            filename = os.path.join(SCRIPT_DIR, filename)
         return os.path.exists(filename)
     
     @staticmethod
@@ -78,11 +97,12 @@ class FileManager:
         
         for dir_name in dirs_to_remove:
             try:
-                if os.path.exists(dir_name):
-                    shutil.rmtree(dir_name)
-                    logger.info(f"Removed directory {dir_name}")
+                dir_path = os.path.join(SCRIPT_DIR, dir_name)
+                if os.path.exists(dir_path):
+                    shutil.rmtree(dir_path)
+                    logger.info(f"Removed directory {dir_path}")
             except Exception as e:
-                logger.warning(f"Could not remove directory {dir_name}: {e}") 
+                logger.warning(f"Could not remove directory {dir_name}: {e}")
 
         def clear_tmp():
             # Instead of os.system with sudo (which can leave orphaned processes)

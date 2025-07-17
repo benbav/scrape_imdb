@@ -5,6 +5,9 @@ from typing import Dict, Any
 from dotenv import load_dotenv
 import time
 
+# Get the directory where the script is located
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 @dataclass
 class IMDBConfig:
     login: str
@@ -51,13 +54,13 @@ class IMDBConstants:
     GRAPHQL_ENDPOINT = "https://api.graphql.imdb.com/"
     CACHING_ENDPOINT = "https://caching.graphql.imdb.com/"
     
-    # File names
-    COOKIES_FILE = "cookies.json"
-    RATINGS_FILE = "imdb_ratings.json"
-    USER_DATA_FILE = "user_data.json"
-    BASE_DATA_FILE = "base_data.csv"
-    USER_RATINGS_FILE = "user_ratings.csv"
-    CLEANED_UPLOAD_FILE = "imdb_cleaned_upload.csv"
+    # File names with absolute paths
+    COOKIES_FILE = os.path.join(SCRIPT_DIR, "cookies.json")
+    RATINGS_FILE = os.path.join(SCRIPT_DIR, "imdb_ratings.json")
+    USER_DATA_FILE = os.path.join(SCRIPT_DIR, "user_data.json")
+    BASE_DATA_FILE = os.path.join(SCRIPT_DIR, "base_data.csv")
+    USER_RATINGS_FILE = os.path.join(SCRIPT_DIR, "user_ratings.csv")
+    CLEANED_UPLOAD_FILE = os.path.join(SCRIPT_DIR, "imdb_cleaned_upload.csv")
 
 @dataclass
 class RequestConfig:

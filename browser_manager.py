@@ -3,7 +3,7 @@ import json
 import sys
 from playwright.async_api import Playwright, async_playwright
 from typing import Dict, Any
-from config import IMDBConfig, IMDBConstants
+from config import IMDBConfig, IMDBConstants, SCRIPT_DIR
 from logger import get_logger
 from file_manager import FileManager
 
@@ -169,7 +169,8 @@ class BrowserManager:
         except Exception as e:
             logger.error(f"Login failed: {e}")
             # Take a screenshot for debugging
-            await page.screenshot(path='login_error.jpg')
+            screenshot_path = os.path.join(SCRIPT_DIR, 'login_error.jpg')
+            await page.screenshot(path=screenshot_path)
             raise
     
     async def get_cookies(self, config: IMDBConfig) -> Dict[str, str]:
@@ -184,7 +185,8 @@ class BrowserManager:
             if try_count > IMDBConstants.MAX_COOKIE_RETRIES:
                 logger.info(f'try count greater than {try_count}, exiting and taking screenshot')
                 page = await self.context.new_page()
-                await page.screenshot(path='test1.jpg')
+                screenshot_path = os.path.join(SCRIPT_DIR, 'test1.jpg')
+                await page.screenshot(path=screenshot_path)
                 sys.exit()
             await asyncio.sleep(IMDBConstants.COOKIE_RETRY_DELAY)
             cookies = await self.context.cookies()
