@@ -9,6 +9,14 @@ class DataProcessor:
     @staticmethod
     def process_ratings_response(response_data: Dict[str, Any]) -> pd.DataFrame:
         """Process the ratings API response into a DataFrame"""
+        # Check for API errors
+        if 'errors' in response_data:
+            error_msg = response_data['errors'][0]['message'] if response_data['errors'] else 'Unknown API error'
+            raise Exception(f"API Error: {error_msg}")
+        
+        if 'data' not in response_data:
+            raise Exception("API response missing 'data' key")
+        
         cols = ['title', 'id', 'release_year', 'genres']
         df = pd.DataFrame(columns=cols)
 
@@ -26,6 +34,14 @@ class DataProcessor:
     @staticmethod
     def process_user_data_response(response_data: Dict[str, Any]) -> pd.DataFrame:
         """Process the user data API response into a DataFrame"""
+        # Check for API errors
+        if 'errors' in response_data:
+            error_msg = response_data['errors'][0]['message'] if response_data['errors'] else 'Unknown API error'
+            raise Exception(f"API Error: {error_msg}")
+        
+        if 'data' not in response_data:
+            raise Exception("API response missing 'data' key")
+        
         df = pd.DataFrame(columns=['id', 'user_rating'])
 
         base_json = response_data['data']['titles']

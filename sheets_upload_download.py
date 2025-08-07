@@ -52,6 +52,9 @@ def upload_to_sheets(worksheet_name: str, spreadsheet_id: str, csv_upload_path: 
         # Read CSV file
         df = pd.read_csv(csv_upload_path)
         
+        # Replace NaN values with empty strings to make them JSON compliant
+        df = df.fillna('')
+        
         # Convert DataFrame to list of lists (including headers)
         data = [df.columns.tolist()] + df.values.tolist()
         

@@ -5,8 +5,10 @@ from typing import Dict, Any
 from dotenv import load_dotenv
 import time
 
-# Get the directory where the script is located
+# Get the directory where the script is located - scraped_data
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(SCRIPT_DIR, "scraped_data")
 
 @dataclass
 class IMDBConfig:
@@ -55,12 +57,14 @@ class IMDBConstants:
     CACHING_ENDPOINT = "https://caching.graphql.imdb.com/"
     
     # File names with absolute paths
-    COOKIES_FILE = os.path.join(SCRIPT_DIR, "cookies.json")
-    RATINGS_FILE = os.path.join(SCRIPT_DIR, "imdb_ratings.json")
-    USER_DATA_FILE = os.path.join(SCRIPT_DIR, "user_data.json")
-    BASE_DATA_FILE = os.path.join(SCRIPT_DIR, "base_data.csv")
-    USER_RATINGS_FILE = os.path.join(SCRIPT_DIR, "user_ratings.csv")
-    CLEANED_UPLOAD_FILE = os.path.join(SCRIPT_DIR, "imdb_cleaned_upload.csv")
+    SCRAPED_DATA_DIR = os.path.join(SCRIPT_DIR, "scraped_data")
+    COOKIES_FILE = os.path.join(SCRAPED_DATA_DIR, "cookies.json")
+    RATINGS_FILE = os.path.join(SCRAPED_DATA_DIR, "imdb_ratings.json")
+    USER_DATA_FILE = os.path.join(SCRAPED_DATA_DIR, "user_data.json")
+    BASE_DATA_FILE = os.path.join(SCRAPED_DATA_DIR, "base_data.csv")
+    USER_RATINGS_FILE = os.path.join(SCRAPED_DATA_DIR, "user_ratings.csv")
+    CLEANED_UPLOAD_FILE = os.path.join(SCRAPED_DATA_DIR, "imdb_cleaned_upload.csv")
+    GRAPHQL_HASH_FILE = os.path.join(SCRAPED_DATA_DIR, "graphql_hash.json")
 
 @dataclass
 class RequestConfig:
@@ -92,16 +96,26 @@ class RequestConfig:
     
     @staticmethod
     def get_cookies_template(cookies_dict: Dict[str, str]) -> Dict[str, str]:
-        return {
-            'session-id': cookies_dict['session-id'],
-            'ubid-main': cookies_dict['ubid-main'],
-            'ad-oo': cookies_dict['ad-oo'],
-            'ci': cookies_dict['ci'],
-            'at-main': cookies_dict['at-main'],
-            'sess-at-main': cookies_dict['sess-at-main'],
-            'uu': cookies_dict['uu'],
-            'session-id-time': f"{int(time.time())}{IMDBConstants.SESSION_ID_TIME_SUFFIX}",
-            'gpc-cache': '1',
-            'x-main': cookies_dict['x-main'],
-            'session-token': cookies_dict['session-token']
-        } 
+        # Define required cookies and their fallback values
+        required_cookies = {
+            'session-id': '',
+            'ubid-main': '',
+            'ad-oo': '',
+            'ci': '',
+            'at-main': '',
+            'sess-at-main': '',
+            'uu': '',  # This might not always be present
+            'x-main': '',
+            'session-token': ''
+        }
+        
+        # Build cookies dict with fallbacks for missing cookies
+        cookies = {}
+        for cookie_name, fallback_value in required_cookies.items():
+            cookies[cookie_name] = cookies_dict.get(cookie_name, fallback_value)
+        
+        # Add computed cookies
+        cookies['session-id-time'] = f"{int(time.time())}{IMDBConstants.SESSION_ID_TIME_SUFFIX}"
+        cookies['gpc-cache'] = '1'
+        
+        return cookies 

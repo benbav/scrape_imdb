@@ -7,3 +7,4 @@ test.ipynb
 *.log
 tempCodeRunnerFile.py
 __pycache__
+scraped_data/

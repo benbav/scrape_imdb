@@ -10,6 +10,7 @@ from imdb_api_client import IMDBAPIClient
 from data_processor import DataProcessor
 from file_manager import FileManager
 from sheets_upload_download import upload_to_sheets
+from datetime import datetime
 
 logger = get_logger(__name__)
 
@@ -29,19 +30,44 @@ class IMDBScraper:
             self._setup_environment()
             
             # Get cookies via browser automation
-            cookies = await self._get_cookies()
+            cookies = await self._get_playwright_data()
             
             # Get base ratings data
-            base_df = self._get_base_data(cookies)
+            # try:
+            #     base_df = self._get_base_data(cookies)
+            # except Exception as e:
+            #     logger.warning(f"Could not get base ratings data: {e}")
+            #     logger.info("This is likely due to an outdated GraphQL hash.")
+            #     logger.info("The script will continue with other data collection...")
+            #     base_df = pd.DataFrame(columns=['title', 'id', 'release_year', 'genres'])
             
-            # Get user-specific data
-            user_df = self._get_user_data(cookies, base_df['id'].to_list())
+            # # Get user-specific data (skip if no base data)
+            # if len(base_df) > 0:
+            #     user_df = self._get_user_data(cookies, base_df['id'].to_list())
+            # else:
+            #     logger.warning("Skipping user data collection due to missing base data")
+            #     user_df = pd.DataFrame(columns=['id', 'user_rating'])
             
-            # Get platform data
-            platform_df = self._get_platform_data(cookies, base_df['id'].to_list())
+            # # Get platform data (skip if no base data)
+            # if len(base_df) > 0:
+            #     platform_df = self._get_platform_data(cookies, base_df['id'].to_list())
+            # else:
+            #     logger.warning("Skipping platform data collection due to missing base data")
+            #     platform_df = pd.DataFrame()
             
             # Process and merge all data
-            final_df = self._process_data(base_df, user_df)
+            final_df = pd.read_csv(f"{IMDBConstants.SCRAPED_DATA_DIR}/imdb_cleaned_upload.csv")
+
+            # add date updated column
+            final_df['date_updated'] = datetime.now().strftime('%Y-%m-%d')
+
+            print(final_df.head())
+            input("Press Enter to continue...")
+
+            # if the file is empty, raise an error
+            if final_df.empty:
+                logger.error("The export.csv file is empty. Please check the browser automation.")
+                raise Exception("The export.csv file is empty. Please check the browser automation.")
             
             # Upload to sheets (optional)
             self._upload_to_sheets(final_df)
@@ -84,11 +110,11 @@ class IMDBScraper:
         setup_logger()
         logger.info("Environment setup completed")
     
-    async def _get_cookies(self) -> Dict[str, str]:
+    async def _get_playwright_data(self) -> Dict[str, str]:
         """Get authentication cookies via browser automation"""
         logger.info("Starting browser automation to get cookies...")
         await self.browser_manager.create_stealth_browser()
-        cookies = await self.browser_manager.get_cookies(self.config)
+        cookies = await self.browser_manager.get_playwright_data(self.config)
         logger.info("Successfully obtained cookies")
         return cookies
     
@@ -138,9 +164,11 @@ class IMDBScraper:
             logger.error(f"Failed to upload to Google Sheets: {e}")
     
     def _cleanup(self) -> None:
-        """Clean up temporary files"""
+        """Clean up temporary files and environment"""
         logger.info("Cleaning up temporary files...")
         FileManager.cleanup_temp_files()
+        logger.info("Cleaning up environment...")
+        FileManager.cleanup_environment()
         logger.info("Cleanup completed")
 
 async def main():

@@ -1,8 +1,9 @@
 import requests
 import time
+import os
 import pandas as pd
 from typing import Dict, Any, List
-from config import IMDBConfig, IMDBConstants, RequestConfig
+from config import IMDBConfig, IMDBConstants, RequestConfig, SCRIPT_DIR
 from logger import get_logger
 from file_manager import FileManager
 from data_processor import DataProcessor
@@ -19,10 +20,36 @@ class IMDBAPIClient:
         cookies = RequestConfig.get_cookies_template(cookies_dict)
         headers = RequestConfig.get_headers()
 
+        # Try to get the current hash from the extracted file
+        hash_value = "52aeb10821503d123f19bdd9207be68fa8163178c9ffc450d577d5c4baabe307"  # fallback
+        
+        if os.path.exists(IMDBConstants.GRAPHQL_HASH_FILE):
+            try:
+                hash_data = FileManager.load_json(IMDBConstants.GRAPHQL_HASH_FILE)
+                if 'ratings_hash' in hash_data:
+                    hash_value = hash_data['ratings_hash']
+                    logger.info(f"Using extracted hash: {hash_value}")
+            except Exception as e:
+                logger.warning(f"Could not load hash file: {e}")
+        
+        # If no extracted hash, try to use the 'pt' cookie value as a hash
+        # Temporarily disabled to test original hardcoded hash
+        # if hash_value == "52aeb10821503d123f19bdd9207be68fa8163178c9ffc450d577d5c4baabe307":
+        #     try:
+        #         cookies_data = FileManager.load_json(IMDBConstants.COOKIES_FILE)
+        #         if 'pt' in cookies_data:
+        #             # Extract the first part of the pt cookie (before the |)
+        #             pt_value = cookies_data['pt'].split('|')[0].replace('v2:', '')
+        #             if len(pt_value) == 64:  # SHA256 hash length
+        #                 hash_value = pt_value
+        #                 logger.info(f"Using 'pt' cookie as hash: {hash_value}")
+        #     except Exception as e:
+        #         logger.warning(f"Could not use 'pt' cookie as hash: {e}")
+
         params = {
             'operationName': 'RatingsPage',
             'variables': '{"filter":{"certificateConstraint":{},"explicitContentConstraint":{"explicitContentFilter":"INCLUDE_ADULT"},"genreConstraint":{},"keywordConstraint":{},"releaseDateConstraint":{"releaseDateRange":{}},"singleUserRatingConstraint":{"filterType":"INCLUDE","userId":"ur155626863"},"titleTextConstraint":{"searchTerm":""},"titleTypeConstraint":{"anyTitleTypeIds":["movie"]},"userRatingsConstraint":{"aggregateRatingRange":{},"ratingsCountRange":{}},"watchOptionsConstraint":{}},"first":250,"isInPace":false,"jumpToPosition":1,"locale":"en-US","sort":{"sortBy":"SINGLE_USER_RATING_DATE","sortOrder":"ASC"}}',
-            'extensions': '{"persistedQuery":{"sha256Hash":"52aeb10821503d123f19bdd9207be68fa8163178c9ffc450d577d5c4baabe307","version":1}}',
+            'extensions': f'{{"persistedQuery":{{"sha256Hash":"{hash_value}","version":1}}}}',
         }
 
         response = self.session.get(IMDBConstants.GRAPHQL_ENDPOINT, params=params, cookies=cookies, headers=headers)
