@@ -49,10 +49,10 @@ async def main():
         await browser_manager.get_playwright_data(config)
         logger.info("Playwright data collection completed successfully!")
         
-        # Load cookies from file to verify
+        # Load cookies from config to verify
         try:
-            cookies = FileManager.load_json(IMDBConstants.COOKIES_FILE)
-            logger.info(f"Cookies loaded from file! Found {len(cookies)} cookies")
+            cookies = config.cookies
+            logger.info(f"Cookies loaded from config! Found {len(cookies)} cookies")
             
             # Log cookie names for debugging
             cookie_names = list(cookies.keys())

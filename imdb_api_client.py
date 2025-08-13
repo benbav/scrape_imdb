@@ -32,19 +32,6 @@ class IMDBAPIClient:
             except Exception as e:
                 logger.warning(f"Could not load hash file: {e}")
         
-        # If no extracted hash, try to use the 'pt' cookie value as a hash
-        # Temporarily disabled to test original hardcoded hash
-        # if hash_value == "52aeb10821503d123f19bdd9207be68fa8163178c9ffc450d577d5c4baabe307":
-        #     try:
-        #         cookies_data = FileManager.load_json(IMDBConstants.COOKIES_FILE)
-        #         if 'pt' in cookies_data:
-        #             # Extract the first part of the pt cookie (before the |)
-        #             pt_value = cookies_data['pt'].split('|')[0].replace('v2:', '')
-        #             if len(pt_value) == 64:  # SHA256 hash length
-        #                 hash_value = pt_value
-        #                 logger.info(f"Using 'pt' cookie as hash: {hash_value}")
-        #     except Exception as e:
-        #         logger.warning(f"Could not use 'pt' cookie as hash: {e}")
 
         params = {
             'operationName': 'RatingsPage',
@@ -105,46 +92,216 @@ class IMDBAPIClient:
 
         return DataProcessor.process_user_data_response(response_data)
     
-    def get_platform_data(self, cookies_dict: Dict[str, str], ids: List[str]) -> pd.DataFrame:
-        """Get platform/streaming data for the given IDs"""
-        df = FileManager.load_csv(IMDBConstants.BASE_DATA_FILE)
+    def get_platform_data(self, cookies_dict: Dict[str, str], ids: List[str] = None) -> pd.DataFrame:
+        """Get platform/streaming data for all movies in the CSV file or specified IDs"""
+        # Try to load imdb_cleaned_upload.csv first, if it doesn't exist, try base_data.csv, otherwise create new DataFrame
+        try:
+            df = FileManager.load_csv(IMDBConstants.CLEANED_UPLOAD_FILE)
+            logger.info(f"Loaded existing data from {IMDBConstants.CLEANED_UPLOAD_FILE}")
+        except FileNotFoundError:
+            try:
+                df = FileManager.load_csv(IMDBConstants.BASE_DATA_FILE)
+                logger.info(f"Loaded existing data from {IMDBConstants.BASE_DATA_FILE}")
+            except FileNotFoundError:
+                if ids:
+                    logger.warning(f"No existing data files found, creating new DataFrame with provided IDs")
+                    df = pd.DataFrame({'id': ids})
+                else:
+                    raise FileNotFoundError("No data files found and no IDs provided")
+        
+        # If no IDs provided, use all IDs from the Const column
+        if ids is None:
+            id_column = 'id' if 'id' in df.columns else 'Const'
+            all_ids = df[id_column].dropna().unique().tolist()
+            logger.info(f"Found {len(all_ids)} unique IDs from {id_column} column")
+            
+            # Process in smaller batches to avoid rate limiting
+            batch_size = 10
+            ids = all_ids[:batch_size]  # Start with first 10 movies
+            logger.info(f"Processing first {len(ids)} movies to avoid rate limiting")
+            logger.info(f"Remaining {len(all_ids) - len(ids)} movies can be processed in subsequent calls")
         
         # Add platforms column if it doesn't exist
         if 'platforms' not in df.columns:
             df['platforms'] = None
+        
+        # Ensure platforms column is string type to avoid pandas warnings
+        df['platforms'] = df['platforms'].astype('object')
+
+        # Handle different column names for ID
+        id_column = 'id' if 'id' in df.columns else 'Const'
+        logger.info(f"Using '{id_column}' column for movie IDs")
 
         cookies = RequestConfig.get_cookies_template(cookies_dict)
         headers = RequestConfig.get_headers()
 
+        # Load hashes to try
+        try:
+            hash_data = FileManager.load_json(IMDBConstants.GRAPHQL_HASH_FILE)
+            hashes_to_try = hash_data.get('graphql_hashes', [])
+            logger.info(f"Loaded {len(hashes_to_try)} hashes to try for platform data")
+        except Exception as e:
+            logger.warning(f"Could not load hashes file: {e}")
+            hashes_to_try = ["8b4249ea40b309e5bc4f32ae7e618c77c9da1ed155ffd584b3817f980fb29dd3"]  # fallback
+        
+        # Remove duplicates
+        unique_hashes = list(dict.fromkeys(hashes_to_try))
+        logger.info(f"Testing {len(unique_hashes)} unique hashes for platform data")
+
         for i, id in enumerate(ids):
-            params = {
-                'operationName': 'Title_Summary_Prompt_From_Base',
-                'variables': f'{{"id":"{id}","includeUserPreferredServices":false,"isInPace":false,"isProPage":false,"locale":"en-US","location":{{"postalCodeLocation":{{"country":"US","postalCode":"30004"}}}}}}',
-                'extensions': '{"persistedQuery":{"sha256Hash":"8b4249ea40b309e5bc4f32ae7e618c77c9da1ed155ffd584b3817f980fb29dd3","version":1}}',
-            }
-
-            response = self.session.get(IMDBConstants.CACHING_ENDPOINT, params=params, cookies=cookies, headers=headers)
+            # Try each hash until one works
+            working_hash = None
+            max_retries = 3
             
-            if response.status_code != 200:
-                logger.warning(f"Error getting platform data for {id}: {response.status_code}")
-                continue
+            for retry in range(max_retries):
+                for hash_idx, hash_value in enumerate(unique_hashes):
+                    try:
+                        params = {
+                            'operationName': 'Title_Summary_Prompt_From_Base',
+                            'variables': f'{{"id":"{id}","includeUserPreferredServices":false,"isInPace":false,"isProPage":false,"locale":"en-US","location":{{"postalCodeLocation":{{"country":"US","postalCode":"30004"}}}}}}',
+                            'extensions': f'{{"persistedQuery":{{"sha256Hash":"{hash_value}","version":1}}}}',
+                        }
+
+                        response = self.session.get(IMDBConstants.CACHING_ENDPOINT, params=params, cookies=cookies, headers=headers)
+                        
+                        if response.status_code == 200:
+                            response_data = response.json()
+                            # Check if response contains actual data (not an error)
+                            if 'data' in response_data and 'title' in response_data['data']:
+                                working_hash = hash_value
+                                logger.info(f"✓ Hash {hash_value} worked for {id}")
+                                break
+                            else:
+                                logger.warning(f"✗ Hash {hash_value} returned error for {id}")
+                        elif response.status_code == 429:  # Rate limited
+                            logger.warning(f"Rate limited for {id}, waiting 5 seconds...")
+                            time.sleep(5)
+                            continue
+                        else:
+                            # logger.warning(f"✗ Hash {hash_value} failed with status {response.status_code} for {id}")
+                            pass
+                            
+                    except Exception as e:
+                        logger.warning(f"✗ Hash {hash_value} failed with error for {id}: {e}")
+                    
+                    # Small delay between hash attempts
+                    time.sleep(0.5)
                 
-            response_data = response.json()
-            providers = DataProcessor.extract_platforms_from_response(response_data)
+                if working_hash:
+                    break
+                elif retry < max_retries - 1:
+                    logger.warning(f"Retry {retry + 1}/{max_retries} for {id}")
+                    time.sleep(2)  # Wait 2 seconds before retry
             
-            if providers:
-                df.loc[df['id'] == id, 'platforms'] = ', '.join(providers)
+            if working_hash:
+                logger.info(f"Working hash found for {id}: {working_hash}")
+                response_data = response.json()
+                providers = DataProcessor.extract_platforms_from_response(response_data)
+                
+                if providers:
+                    df.loc[df[id_column] == id, 'platforms'] = ', '.join(providers)
+                else:
+                    df.loc[df[id_column] == id, 'platforms'] = None
+                    
+                logger.info(f"Successfully processed {id} with hash {working_hash}")
             else:
-                df.loc[df['id'] == id, 'platforms'] = None
-
+                logger.error(f"✗ No working hash found for {id}")
+                df.loc[df[id_column] == id, 'platforms'] = None
+            
+            # Save after each movie is processed
+            FileManager.save_csv(df, IMDBConstants.CLEANED_UPLOAD_FILE)
+            logger.info(f"Saved progress after processing {id} ({i + 1}/{len(ids)} movies completed)")
+            
             # Log progress every 10 items or on the last item
             if (i + 1) % 10 == 0 or (i + 1) == len(ids):
                 logger.info(f"Platform data progress: {i + 1}/{len(ids)} movies processed")
 
-            time.sleep(IMDBConstants.REQUEST_DELAY)
+            # Longer delay between movies to avoid rate limiting
+            time.sleep(1.0)  # 1 second delay between movies
 
-        # Save only once at the end
-        FileManager.save_csv(df, IMDBConstants.BASE_DATA_FILE)
         logger.info(f"Platform data collection completed for {len(ids)} movies")
 
-        return df 
+        return df
+    
+    def test_graphql_hashes(self, cookies_dict: Dict[str, str]) -> Dict[str, bool]:
+        """Test each GraphQL hash from the scraped hashes file until one works"""
+        cookies = RequestConfig.get_cookies_template(cookies_dict)
+        headers = RequestConfig.get_headers()
+        
+        # Load the hashes from the file
+        try:
+            hash_data = FileManager.load_json(IMDBConstants.GRAPHQL_HASH_FILE)
+            hashes = hash_data.get('graphql_hashes', [])
+            logger.info(f"Loaded {len(hashes)} hashes to test")
+        except Exception as e:
+            logger.error(f"Could not load hashes file: {e}")
+            hashes = []
+        
+        # Add some known working hashes as fallbacks
+        fallback_hashes = [
+            "52aeb10821503d123f19bdd9207be68fa8163178c9ffc450d577d5c4baabe307",  # Original fallback
+            "8b4249ea40b309e5bc4f32ae7e618c77c9da1ed155ffd584b3817f980fb29dd3",  # Platform data hash
+            "afebb5841a7a0072bc4d4c3eb29c64832e531a0846c564caf482f814e8ce12c7",  # User data hash
+        ]
+        
+        # Combine scraped hashes with fallback hashes
+        all_hashes = hashes + fallback_hashes
+        logger.info(f"Testing {len(all_hashes)} total hashes (including {len(fallback_hashes)} fallbacks)")
+        
+        # Remove duplicates while preserving order
+        unique_hashes = list(dict.fromkeys(all_hashes))
+        logger.info(f"Testing {len(unique_hashes)} unique hashes")
+        
+        results = {}
+        
+        for i, hash_value in enumerate(unique_hashes):
+            logger.info(f"Testing hash {i+1}/{len(unique_hashes)}: {hash_value}")
+            
+            try:
+                params = {
+                    'operationName': 'RatingsPage',
+                    'variables': '{"filter":{"certificateConstraint":{},"explicitContentConstraint":{"explicitContentFilter":"INCLUDE_ADULT"},"genreConstraint":{},"keywordConstraint":{},"releaseDateConstraint":{"releaseDateRange":{}},"singleUserRatingConstraint":{"filterType":"INCLUDE","userId":"ur155626863"},"titleTextConstraint":{"searchTerm":""},"titleTypeConstraint":{"anyTitleTypeIds":["movie"]},"userRatingsConstraint":{"aggregateRatingRange":{},"ratingsCountRange":{}},"watchOptionsConstraint":{}},"first":10,"isInPace":false,"jumpToPosition":1,"locale":"en-US","sort":{"sortBy":"SINGLE_USER_RATING_DATE","sortOrder":"ASC"}}',
+                    'extensions': f'{{"persistedQuery":{{"sha256Hash":"{hash_value}","version":1}}}}',
+                }
+
+                response = self.session.get(IMDBConstants.GRAPHQL_ENDPOINT, params=params, cookies=cookies, headers=headers)
+                
+                if response.status_code == 200:
+                    response_data = response.json()
+                    
+                    # Check if the response contains actual data
+                    if 'data' in response_data and 'advancedTitleSearch' in response_data['data']:
+                        edges = response_data['data']['advancedTitleSearch'].get('edges', [])
+                        if len(edges) > 0:
+                            logger.info(f"✓ Hash {hash_value} WORKED! Found {len(edges)} results")
+                            results[hash_value] = True
+                            
+                            # Save the working hash for future use
+                            working_hash_data = {
+                                'ratings_hash': hash_value,
+                                'timestamp': time.time(),
+                                'tested_hashes': results
+                            }
+                            FileManager.save_json(working_hash_data, IMDBConstants.GRAPHQL_HASH_FILE)
+                            logger.info(f"Saved working hash to {IMDBConstants.GRAPHQL_HASH_FILE}")
+                            
+                            return results
+                        else:
+                            # logger.warning(f"✗ Hash {hash_value} returned empty results")
+                            results[hash_value] = False
+                    else:
+                        # logger.warning(f"✗ Hash {hash_value} returned invalid response structure")
+                        results[hash_value] = False
+                else:
+                    # logger.warning(f"✗ Hash {hash_value} failed with status {response.status_code}")
+                    results[hash_value] = False
+                    
+            except Exception as e:
+                logger.error(f"✗ Hash {hash_value} failed with error: {e}")
+                results[hash_value] = False
+            
+            # Small delay between requests
+            time.sleep(0.5)
+        
+        logger.error("No working hash found!")
+        return results 

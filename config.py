@@ -17,6 +17,15 @@ class IMDBConfig:
     spreadsheet_id: str
     service_account_path: str
     
+    @property
+    def cookies(self) -> Dict[str, str]:
+        """Load cookies from the scraped_data/cookies.json file"""
+        try:
+            from file_manager import FileManager
+            return FileManager.load_json(IMDBConstants.COOKIES_FILE)
+        except Exception as e:
+            raise ValueError(f"Could not load cookies from {IMDBConstants.COOKIES_FILE}: {e}")
+    
     @classmethod
     def from_env(cls):
         load_dotenv()
@@ -64,7 +73,7 @@ class IMDBConstants:
     BASE_DATA_FILE = os.path.join(SCRAPED_DATA_DIR, "base_data.csv")
     USER_RATINGS_FILE = os.path.join(SCRAPED_DATA_DIR, "user_ratings.csv")
     CLEANED_UPLOAD_FILE = os.path.join(SCRAPED_DATA_DIR, "imdb_cleaned_upload.csv")
-    GRAPHQL_HASH_FILE = os.path.join(SCRAPED_DATA_DIR, "graphql_hash.json")
+    GRAPHQL_HASH_FILE = os.path.join(SCRAPED_DATA_DIR, "graphql_hashes.json")
 
 @dataclass
 class RequestConfig:

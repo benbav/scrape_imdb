@@ -1,17 +1,4 @@
 #!/usr/bin/env python3
-"""
-IMDB Scraper - Main Entry Point
-
-This script orchestrates the complete IMDB scraping process using a modular architecture.
-The refactored version separates concerns into dedicated modules for better maintainability.
-
-Usage:
-    python main.py
-
-Dependencies:
-    - All modules in the same directory
-    - Environment variables configured in .env file
-"""
 
 import asyncio
 from imdb_scraper import main

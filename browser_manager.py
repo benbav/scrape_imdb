@@ -208,7 +208,7 @@ class BrowserManager:
                 if try_count > IMDBConstants.MAX_COOKIE_RETRIES:
                     logger.info(f'try count greater than {try_count}, exiting and taking screenshot')
                     page = await self.context.new_page()
-                    screenshot_path = os.path.join(SCRIPT_DIR, 'test1.jpg')
+                    # screenshot_path = os.path.join(SCRIPT_DIR, 'test1.jpg')
                     await page.screenshot(path=screenshot_path)
                     logger.error("Failed to get required cookies after maximum retries")
                     logger.error(f"Available cookies: {list(cookies_dict.keys())}")
@@ -300,7 +300,6 @@ class BrowserManager:
         await self.page.get_by_role("link", name="Open exports page").click()
 
         # go to export page
-        # await self.page.goto('https://www.imdb.com/exports/?ref_=wl')
 
         # while this is visible, refresh the page, wait to load : await page.get_by_text("In progress").click()
         while await self.page.get_by_text("In progress").is_visible():
@@ -364,7 +363,7 @@ class BrowserManager:
             if 'api.graphql.imdb.com' in request.url or 'caching.graphql.imdb.com' in request.url:
                 try:
                     url = request.url
-                    logger.info(f"GraphQL request detected: {url}")
+                    # logger.info(f"GraphQL request detected: {url}")
                     
                     # Look for any GraphQL request with sha256Hash
                     if 'sha256Hash' in url:
@@ -384,7 +383,7 @@ class BrowserManager:
                                 break
                         
                         if hash_val:
-                            logger.info(f"Found GraphQL hash: {hash_val}")
+                            # logger.info(f"Found GraphQL hash: {hash_val}")
                             
                             # Check if this is a Title_Summary_Prompt_From_Base operation
                             if 'Title_Summary_Prompt_From_Base' in url:
@@ -402,34 +401,18 @@ class BrowserManager:
         # Add the request handler
         self.page.on('request', handle_request)
 
-        # take screenshot of page
-        screenshot_path = os.path.join(SCRIPT_DIR, 'watchlist_page0.jpg')
-        await self.page.screenshot(path=screenshot_path)
-        logger.info(f"Screenshot saved to {screenshot_path}")
-        
         try:
             # Navigate to watchlist page
             logger.info("Navigating to watchlist page...")
             try:
+                
                 # First try to find and click on a watchlist link
-                await self.page.get_by_role("link", name="Watchlist838").click(timeout=5000)
-                logger.info("Successfully clicked Watchlist838 link")
+                await asyncio.sleep(3)
+                await self.page.goto("https://www.imdb.com/user/ur155626863/watchlist/?ref_=hm_nv_urwls_all", timeout=30000)
+                logger.info("Successfully navigated to watchlist page")
             except Exception as e:
-                logger.warning(f"Could not find Watchlist838 link: {e}")
-                try:
-                    # Try alternative watchlist selectors
-                    await self.page.click('a[href*="watchlist"]', timeout=5000)
-                    logger.info("Clicked on watchlist link using href selector")
-                except Exception as e2:
-                    logger.warning(f"Could not find watchlist link with href selector: {e2}")
-                    try:
-                        # Try navigating directly to watchlist
-                        await self.page.goto("https://www.imdb.com/user/ur155626863/watchlist/?ref_=hm_nv_urwls_all", timeout=30000)
-                        logger.info("Navigated directly to watchlist page")
-                    except Exception as e3:
-                        logger.warning(f"Could not navigate to watchlist page: {e3}")
-                        # Just stay on current page and continue
-                        logger.info("Staying on current page")
+                logger.warning(f"Could not navigate to watchlist page: {e}")
+
             
             await asyncio.sleep(3)
             
@@ -439,35 +422,9 @@ class BrowserManager:
                 logger.info("Watchlist page loaded successfully")
             except:
                 await asyncio.sleep(5)
-                logger.info("Using sleep fallback for watchlist page load")
-
-            # take screenshot of page
-            screenshot_path = os.path.join(SCRIPT_DIR, 'watchlist_page1.jpg')
-            await self.page.screenshot(path=screenshot_path)
-            logger.info(f"Screenshot saved to {screenshot_path}")
-            
-            # Click on the watchlist link (your specific workflow)
-            logger.info("Clicking on Watchlist838 link...")
-            try:
-                await self.page.get_by_role("link", name="Watchlist838").click()
-                logger.info("Successfully clicked Watchlist838 link")
-            except Exception as e:
-                logger.warning(f"Could not click Watchlist838 link: {e}")
-                # Try alternative selectors for watchlist
-                try:
-                    await self.page.click('a[href*="watchlist"]', timeout=5000)
-                    logger.info("Clicked on watchlist link using alternative selector")
-                except Exception as e2:
-                    logger.warning(f"Could not click watchlist link with alternative selector: {e2}")
-            
-            await asyncio.sleep(3)
             
             # Click on "See more information about Breaking Bad" button
             logger.info("Clicking on 'See more information about Breaking Bad' button...")
-            # take screenshot of page
-            screenshot_path = os.path.join(SCRIPT_DIR, 'breaking_bad_page.jpg')
-            await self.page.screenshot(path=screenshot_path)
-            logger.info(f"Screenshot saved to {screenshot_path}")
 
             try:
                 await self.page.get_by_role("button", name="See more information about Breaking Bad").click()
@@ -476,17 +433,12 @@ class BrowserManager:
                 logger.warning(f"Could not click Breaking Bad button: {e}")
                 # Try alternative selectors for Breaking Bad
                 try:
-                    await self.page.click('a[href*="tt0903747"]', timeout=5000)
+                    await self.page.get_by_role("link", name="1. Breaking Bad").click(timeout=5000)
                     logger.info("Clicked on Breaking Bad link using alternative selector")
                 except Exception as e2:
                     logger.warning(f"Could not click Breaking Bad link with alternative selector: {e2}")
                     # Try navigating directly to Breaking Bad page
-                    try:
-                        await self.page.goto("https://www.imdb.com/title/tt0903747/", timeout=30000)
-                        logger.info("Navigated directly to Breaking Bad page")
-                    except Exception as e3:
-                        logger.warning(f"Could not navigate to Breaking Bad page: {e3}")
-            
+                   
             # Wait for network requests to complete
             await asyncio.sleep(5)
             
@@ -495,7 +447,8 @@ class BrowserManager:
                 await self.page.wait_for_load_state('networkidle', timeout=15000)
             except:
                 await asyncio.sleep(5)
-            
+
+
             # Check if we found any hashes
             if graphql_hashes:
                 logger.info(f"Found {len(graphql_hashes)} GraphQL hashes:")
@@ -507,28 +460,8 @@ class BrowserManager:
                     'graphql_hashes': graphql_hashes,
                     'timestamp': asyncio.get_event_loop().time()
                 }
-                FileManager.save_json(hash_data, os.path.join(SCRIPT_DIR, 'graphql_hashes.json'))
+                FileManager.save_json(hash_data, IMDBConstants.GRAPHQL_HASH_FILE)
                 logger.info("GraphQL hashes saved to JSON file")
-                
-                # Save the hashes to a simple text file in scraped_data folder
-                hashes_file_path = os.path.join(IMDBConstants.SCRAPED_DATA_DIR, 'hashes.txt')
-                try:
-                    with open(hashes_file_path, 'w') as f:
-                        f.write("GraphQL Hashes Captured:\n")
-                        f.write("=" * 50 + "\n")
-                        f.write(f"Timestamp: {asyncio.get_event_loop().time()}\n")
-                        f.write(f"Total hashes found: {len(graphql_hashes)}\n\n")
-                        
-                        for i, hash_val in enumerate(graphql_hashes, 1):
-                            f.write(f"Hash {i}: {hash_val}\n")
-                        
-                        f.write("\n" + "=" * 50 + "\n")
-                        f.write("Note: These hashes were captured from network requests\n")
-                        f.write("during browser automation of IMDB pages.\n")
-                    
-                    logger.info(f"GraphQL hashes saved to text file: {hashes_file_path}")
-                except Exception as e:
-                    logger.error(f"Error saving hashes to text file: {e}")
                 
                 # Check if we have the specific hash we need
                 target_hash = "8b4249ea40b309e5bc4f32ae7e618c77c9da1ed155ffd584b3817f980fb29dd3"
@@ -546,20 +479,20 @@ class BrowserManager:
             logger.error(f"Screenshot saved to {screenshot_path}")
             raise
     
-    async def get_playwright_data(self, config: IMDBConfig) -> Dict[str, str]:
-        """Get playwright data after login"""
+    async def get_playwright_data(self, config: IMDBConfig) -> None:
+        """Get playwright data after login and save cookies to scraped_data folder"""
 
         # login
         await self.login(config)
 
         # get cookies
-        # await self.get_cookies(config)
+        await self.get_cookies(config)
 
         # get sha hash
         await self.get_sha_hash(config)
 
         # get export csv
-        # await self.get_export_csv(config) 
+        await self.get_export_csv(config) 
     
     async def close(self):
         """Close browser and context"""

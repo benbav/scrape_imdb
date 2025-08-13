@@ -1,16 +1,9 @@
-need to get show data and average show info into here
+need to fix hardcoded hash - ok i kinda fi
+
+use text.ipynb file
+still need to bug fix get_platform_data, then go and get get_ratings_data
 
 
-
-need to fix hardcoded hash
-then add more chichi fields
-might need to manually go in and get the hash - right now waitinf ro see more info on breaking bad not found
-- seems to be logging me out
-
-- try again later since im getting capcha using vnc viewer
-
-- i think you need to go in and solve hte capcha 
-Please could you include these fields:
 
 title, user_rating, year, genres, platform, description
 

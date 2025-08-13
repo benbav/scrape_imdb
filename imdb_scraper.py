@@ -29,8 +29,8 @@ class IMDBScraper:
             # Setup environment
             self._setup_environment()
             
-            # Get cookies via browser automation
-            cookies = await self._get_playwright_data()
+            # Get cookies via browser automation and save to scraped_data folder
+            await self._get_playwright_data()
             
             # Get base ratings data
             # try:
@@ -48,12 +48,8 @@ class IMDBScraper:
             #     logger.warning("Skipping user data collection due to missing base data")
             #     user_df = pd.DataFrame(columns=['id', 'user_rating'])
             
-            # # Get platform data (skip if no base data)
-            # if len(base_df) > 0:
-            #     platform_df = self._get_platform_data(cookies, base_df['id'].to_list())
-            # else:
-            #     logger.warning("Skipping platform data collection due to missing base data")
-            #     platform_df = pd.DataFrame()
+            # Get platform data (skip if no base data)
+            self._get_platform_data(self.config.cookies)
             
             # Process and merge all data
             final_df = pd.read_csv(f"{IMDBConstants.SCRAPED_DATA_DIR}/imdb_cleaned_upload.csv")
@@ -110,13 +106,12 @@ class IMDBScraper:
         setup_logger()
         logger.info("Environment setup completed")
     
-    async def _get_playwright_data(self) -> Dict[str, str]:
-        """Get authentication cookies via browser automation"""
+    async def _get_playwright_data(self) -> None:
+        """Get authentication cookies via browser automation and save to scraped_data folder"""
         logger.info("Starting browser automation to get cookies...")
         await self.browser_manager.create_stealth_browser()
-        cookies = await self.browser_manager.get_playwright_data(self.config)
-        logger.info("Successfully obtained cookies")
-        return cookies
+        await self.browser_manager.get_playwright_data(self.config)
+        logger.info("Successfully obtained cookies and saved to scraped_data folder")
     
     def _get_base_data(self, cookies: Dict[str, str]) -> pd.DataFrame:
         """Get base ratings data"""
